@@ -1,0 +1,395 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Quantlane</title>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/quantlane.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/atom-one-light.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section class="intro-slide">
+					<img class="logo" src="img/logo-positive.svg" alt="Quantlane">
+					<h1>Building an algorithmic trading platform in Python 3</h1>
+					<h2>Vita Smid <span class="divider">|</span> PyCon CZ</h2>
+					<h3><span>June 9, 2017</span></h3>
+				</section>
+
+
+<!-- 1. Intro -->
+
+				<section data-background-image="img/wallpaper.svg">
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<h2>Hi, I am Vita.</h2>
+					I am a software engineer specializing in difficult, mathy&nbsp;problems.
+				</section>
+
+				<section>
+					<h2 class="logo-heading"><img src="img/logo-positive-horizontal.svg" alt="Quantlane"></h2>
+					<ul>
+						<li class="fragment">We develop <em>and run</em> a stock trading platform and strategies.</li>
+						<li class="fragment">Small team, lean principles.</li>
+						<li class="fragment">All back-end code is Python 3.5 / 3.6.</li>
+						<li class="fragment">We also like Docker, React, Redis, Kafka, PostgreSQL, TensorFlow, &hellip;</li>
+					</ul>
+					<aside class="notes">
+						We've been successfuly doing this for three years.
+					</aside>
+				</section>
+
+				<section>
+					<h2>Our challenge</h2>
+				</section>
+
+<!-- 2. Our challenge -->
+
+				<section>
+					<img src="img/trading_platform1.svg" class="borderless" alt="">
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section data-transition="zoom-in fade-out">
+					<img src="img/trading_platform2.svg" class="borderless" alt="">
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<img src="img/trading_platform3.svg" class="borderless" alt="">
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<h2>How did we build this?</h2>
+					<h2 class="fragment">What mistakes did we make?</h2>
+				</section>
+
+<!-- 3. Chapter I -->
+
+				<section data-background-image="img/blueprint.jpg">
+					<h1 style="color: #fff; text-shadow: 0 0 5px #000;">Chapter I</h1>
+					<h2 style="color: #fff; text-shadow: 0 0 5px #000;">The Prototype</h2>
+				</section>
+
+				<section>
+					<h2>One small asyncio application</h2>
+					<ul>
+						<li class="fragment">Only one data provider and a single stock exchange supported.</li>
+						<li class="fragment">Most components polling each other.</li>
+						<li class="fragment">Some independent components communicating through <em>queues</em>.</li>
+					</ul>
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<h2>Decoupled components</h2>
+					<div class="fragment">
+					<pre><code class="python" data-trim data-noescape>
+class SomeComponent:
+
+    def start(self):
+        self._is_running.set() # asyncio.Event
+        self._run_task = asyncio.ensure_future(self._run())
+</code></pre>
+					</div>
+					<div class="fragment">
+<pre><code class="python" data-noescape>    async def _run(self):
+        while self._is_running.is_set():
+            message = await some_queue.get() # asyncio.Queue
+            self._process(message)
+</code></pre>
+					</div>
+					<div class="fragment">
+<pre><code class="python" data-noescape>    async def stop(self):
+        self._is_running.clear()
+        self._run_task.cancel()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await self._run_task
+</code></pre>
+					</div>
+				</section>
+
+				<section>
+					<h2>Pickle persistence</h2>
+					<ul>
+						<li class="fragment">Platform state represented as a single big dictionary with &ldquo;namespaces&rdquo;&hellip;</li>
+						<li class="fragment">&hellip;serialised by Pickle and written to a file.</li>
+					</ul>
+					<aside class="notes">
+						We used Pickle for convenience - serialising instances of custom classes.
+						Terrible idea.
+					</aside>
+				</section>
+
+				<section>
+					<h2>Web-based user interface</h2>
+					<ul>
+						<li class="fragment">React</li>
+						<li class="fragment">No business logic in the client.</li>
+						<li class="fragment">Server state represented as <em>collections</em>:<br>named lists of dicts.</li>
+						<li class="fragment">Each collection is serialised to JSON and sent over WebSockets on every model change.</li>
+					</ul>
+					<aside class="notes">
+						Collections inspired by MeteorJS.
+						We improved performance with debouncing.
+					</aside>
+				</section>
+
+				<section>
+					<h2>aiomanhole</h2>
+					<ul>
+						<li class="fragment">Interactive Python session inside your running process.</li>
+						<li class="fragment">The process is not interrupted, thanks to asyncio.</li>
+					</ul>
+					<div class="fragment"><br><a href="https://github.com/nathan-hoad/aiomanhole">github.com/nathan-hoad/aiomanhole</a></div>
+					<aside class="notes">
+						GREAT idea. So many debugging sessions, so many production crises averted.
+					</aside>
+				</section>
+
+<!-- 4. Chapter II -->
+
+				<section data-background-image="img/monolith.jpg">
+					<h1 style="color: #fff; text-shadow: 0 0 5px #000;">Chapter II</h1>
+					<h2 style="text-shadow: 0 0 5px #fff;">The Monolith</h2>
+				</section>
+
+				<section>
+					<h2>Big, multi-component monolith</h2>
+					<ul>
+						<li class="fragment">Many data providers and many stock exchanges supported in the same system.</li>
+						<li class="fragment">
+							Hundreds of components in a single process.
+							<ul class="fragment"><li><a href="https://github.com/qntln/aiodebug">github.com/qntln/aiodebug</a></li></ul>
+						</li>
+						<li class="fragment">Move towards a fully event-driven design.</li>
+					</ul>
+					<aside class="notes">
+						Blowup in complexity. One slow component can halt the system <em>and it's hard to find that out.</em>
+					</aside>
+				</section>
+
+				<section>
+					<h2>Real publish-subscribe system</h2>
+					<div class="fragment">
+					<pre><code class="python" data-trim data-noescape>
+hub = aiopubsub.Hub()
+</code></pre>
+					</div>
+					<div class="fragment">
+<pre><code class="python" data-trim data-noescape>
+subscriber = aiopubsub.Subscriber(hub, 'subscriber_id')
+subscriber.subscribe(('some', 'namespace'))
+</code></pre>
+					</div>
+					<div class="fragment">
+<pre><code class="python" data-trim data-noescape>
+publisher = aiopubsub.Publisher(hub, prefix = ('some',))
+publisher.publish(('namespace',), 'Hello subscriber')
+</code></pre>
+					</div>
+
+					<div class="fragment">
+<pre><code class="python" data-trim data-noescape>
+key, message = await subscriber.consume()
+assert key == ('some', 'namespace')
+assert message == 'Hello subscriber'
+</code></pre>
+					</div>
+					<div class="fragment"><a href="https://github.com/qntln/aiopubsub">github.com/qntln/aiopubsub</a></div>
+					<aside class="notes">
+						Do you think this was a good idea? Yes, so good that we open-sourced it.
+					</aside>
+				</section>
+
+				<section>
+					<h2>Redis persistence</h2>
+					<ul>
+						<li class="fragment">State is still pickled, but saved in Redis.</li>
+						<li class="fragment">
+							Redis data structures (lists, hashes) are utilised for tiny atomic writes.
+							<pre class="fragment"><code class="python" data-trim data-noescape>
+lst = RedisBackedReadWritableList('redis-key', ...)
+lst.append('hi') # writes 'hi' to Redis
+lst[0]           # reads 'hi' from memory, not from Redis
+del lst[0]       # deletes 'hi' from Redis
+							</code></pre>
+						</li>
+						<li class="fragment">Writes are asynchronous and can be debounced.</li>
+					</ul>
+					<aside class="notes">
+						Pretty good, but there is no synchronisation. Can't share state between instances.
+					</aside>
+				</section>
+
+<!-- 5. Chapter III -->
+
+				<section data-background-image="img/network.jpg">
+					<h1 style="color: #fff; text-shadow: 0 0 5px #000;">Chapter III</h1>
+					<h2 style="color: #fff; text-shadow: 0 0 5px #000;">The Ecosystem</h2>
+				</section>
+
+				<section>
+					<h2>Distributed platform</h2>
+					<ul>
+						<li class="fragment">Trading is carried out by 20+ instances of various services.</li>
+						<li class="fragment">Data is distributed through Apache Kafka.</li>
+						<li class="fragment">Request-response communication is managed by a custom RPC system.</li>
+						<li class="fragment">Everything is serialised to binary.</li>
+					</ul>
+					<aside class="notes">
+						You hear about horizontal scaling everywhere. It's not so simple when you have strict latency
+						requirements. Network requests are unreliable. You suddenly have to think about a lot more
+						failure scenarios.
+					</aside>
+				</section>
+
+				<section>
+					<h2>Apache Kafka</h2>
+					<ul>
+						<li class="fragment">Data-producing processes decoupled from data-consuming processes.</li>
+						<li class="fragment">Messages have fixed schemata with versioning and migrations.</li>
+						<li class="fragment">Payloads are binary-encoded using Apache Avro.</li>
+					</ul>
+					<div class="fragment"><br><a href="https://github.com/tebeka/fastavro">github.com/tebeka/fastavro</a></div>
+					<div class="fragment"><a href="https://github.com/aio-libs/aiokafka">github.com/aio-libs/aiokafka</a></div>
+					<aside class="notes">
+						The logical extension of our in-process pubsub system.
+						Kafka was a new concept for us. Difficult to operate at first.
+					</aside>
+				</section>
+
+				<section>
+					<h2>Custom RPC</h2>
+					<ul>
+						<li class="fragment">asyncio + aiohttp</li>
+						<li class="fragment">Standard Avro protocols</li>
+						<li class="fragment">Server discovery via etcd (coming soon).</li>
+					</ul>
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<h2>Custom user interface protocol</h2>
+					<ul>
+						<li class="fragment">Several data structures: lists, records, hashmaps.</li>
+						<li class="fragment">Element-level updates (insert/update/delete an item).</li>
+						<li class="fragment">Serialised to Avro.</li>
+					</ul>
+				</section>
+
+				<section>
+					<div>
+					<pre><code class="python" data-trim data-noescape>
+trades[3] = {'price': '15.10', 'quantity': 500}
+trades[4] = {'price': '15.11', 'quantity': 150}
+</code></pre>
+					</div>
+					<div class="fragment">
+					<pre><code class="python" data-trim data-noescape>
+schema_id = 123
+payload = {'start': 3, 'stop': 5,
+    'items': [{'price': '15.10', 'quantity': 500},
+              {'price': '15.11', 'quantity': 150}]}
+</code></pre>
+					</div>
+					<div class="fragment">
+					<pre><code class="nohighlight" data-trim data-noescape>
+007b<span class="fragment">0014</span><span class="fragment">060a040a31352e3130e8070a31352e3131ac0200</span>
+</code></pre>
+					</div>
+
+					<aside class="notes">
+						You can do more. Compact adjacent item writes. Batch binary messages.
+					</aside>
+				</section>
+<!-- 6. Epilogue -->
+
+				<section>
+					<h1>Epilogue</h1>
+					<h2>8 takeaways</h2>
+				</section>
+
+				<section>
+					<ol>
+						<li>asyncio is great for runtimes with many independent components.</li>
+						<li class="fragment">Decouple your components but don&rsquo;t forget to invest in monitoring and debugging.</li>
+						<li class="fragment">Don&rsquo;t use Pickle.</li>
+						<li class="fragment">Publish-subscribe works nicely within a single process <em>and</em> scales across processes naturally.</li>
+					</ol>
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section>
+					<ol start="5">
+						<li>Lean into distributed systems (like Kafka) slowly. Operational experience is priceless.</li>
+						<li class="fragment">Use fixed schemata&hellip; with evolution.</li>
+						<li class="fragment">Use binary formats like Avro.</li>
+						<li class="fragment">Invent your own protocols when it makes sense.</li>
+					</ol>
+					<aside class="notes">
+					</aside>
+				</section>
+
+				<section class="thankyou-slide" data-background-color="#000000">
+					<img class="logo" src="img/logo-negative.svg" alt="Quantlane">
+					<!-- <div class="fragment"> -->
+						<br>
+						<h1>Thank you</h1>
+						<h2>
+							<a href="mailto:vita@quantlane.com"><span class="email-name">vita@</span>quantlane.com</a>
+						</h2>
+						<h2>
+							<a href="https://twitter.com/quantlane" class="twitter-link">twitter.com/quantlane</a>
+						</h2>
+					<!-- </div> -->
+				</section>
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				history: true,
+				transition: 'fade',
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+		</script>
+	</body>
+</html>

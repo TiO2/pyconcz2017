@@ -1,0 +1,17 @@
+digraph trading_platform {
+
+	subgraph cluster_0 {
+		color = "gray"
+
+		"Parsers" -> "Models"
+		"Models" -> "UI"
+		"Models" -> "Strategies"
+		/*"Strategies" -> "UI"*/
+		"UI" -> "Executor"
+		"Strategies" -> "Executor"
+	}
+
+	"Market data provider" -> "Parsers"
+	"Executor" -> "Stock exchange"
+
+}

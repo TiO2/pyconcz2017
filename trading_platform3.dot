@@ -1,0 +1,10 @@
+digraph trading_platform {
+
+	"Market data provider 1" -> "Trading platform"
+	"Market data provider 2" -> "Trading platform"
+	"Market data provider N" -> "Trading platform"
+	"Trading platform" -> "Stock exchange 1"
+	"Trading platform" -> "Stock exchange 2"
+	"Trading platform" -> "Stock exchange N"
+
+}

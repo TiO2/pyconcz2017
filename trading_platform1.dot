@@ -1,0 +1,6 @@
+digraph trading_platform {
+
+	"Market data provider" -> "Trading platform" [ label = " Anonymous data" ]
+	"Trading platform" -> "Stock exchange" [ label = " Orders to buy or sell" ]
+
+}
